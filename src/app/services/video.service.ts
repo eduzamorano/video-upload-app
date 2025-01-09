@@ -8,7 +8,7 @@ import { AuthService } from './auth.service';
   providedIn: 'root'
 })
 export class VideoService {
-  private apiUrl = 'http://localhost:3000/api/videos';
+  private apiUrl = 'http://192.168.1.83:3000/api/videos';
 
   constructor(
     private http: HttpClient,

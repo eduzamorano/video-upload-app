@@ -12,15 +12,20 @@ interface LoginResponse {
   providedIn: 'root'
 })
 export class AuthService {
-  private apiUrl = 'http://localhost:3000/api/users';
+  private apiUrl = 'http://192.168.1.83:3000/api/users';
   private userSubject = new BehaviorSubject<any>(null);
   user$ = this.userSubject.asObservable();
 
   constructor(private http: HttpClient) {
+    console.log(typeof window)
+    console.log("ZAMORANO")
+    if (typeof window !== 'undefined') {
     const user = localStorage.getItem('user');
     if (user) {
       this.userSubject.next(JSON.parse(user));
+      }
     }
+    
   }
 
   login(credentials: {email: string, password: string}): Observable<LoginResponse> {
@@ -33,8 +38,12 @@ export class AuthService {
     );
   }
 
-  getToken(): string | null {
-    return localStorage.getItem('token');
+  getToken(): string | null | undefined{
+    if (typeof window !== 'undefined') {
+    
+      return localStorage.getItem('token');
+    }
+    return null
   }
 
   logout() {
