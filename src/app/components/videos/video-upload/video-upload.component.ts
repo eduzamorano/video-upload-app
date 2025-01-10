@@ -5,7 +5,7 @@ import { MatCardModule } from '@angular/material/card';
 import { MatButtonModule } from '@angular/material/button';
 import { MatProgressBarModule } from '@angular/material/progress-bar';
 import { MatIconModule } from '@angular/material/icon';
-import { MatSnackBar } from '@angular/material/snack-bar';
+import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
 import { VideoService } from '../../../services/video.service';
 
 @Component({
@@ -16,7 +16,8 @@ import { VideoService } from '../../../services/video.service';
     MatCardModule,
     MatButtonModule,
     MatProgressBarModule,
-    MatIconModule
+    MatIconModule,
+    MatSnackBarModule
   ],
   template: `
     <div class="upload-container">
@@ -26,89 +27,63 @@ import { VideoService } from '../../../services/video.service';
         </mat-card-header>
 
         <mat-card-content>
-          <div 
-            class="upload-zone"
-            (dragover)="onDragOver($event)"
-            (dragleave)="onDragLeave($event)"
-            (drop)="onDrop($event)"
-            [class.dragover]="isDragging"
+          @if (message) {
+            <div class="message" [class]="messageType">
+              {{ message }}
+            </div>
+          }
+
+          <input
+            type="file"
+            (change)="onFileSelected($event)"
+            class="file-input"
+            [disabled]="uploading"
           >
-            <input
-              type="file"
-              #fileInput
-              (change)="onFileSelected($event)"
-              accept="video/*"
-              style="display: none"
-            >
-            
-            <mat-icon class="upload-icon">cloud_upload</mat-icon>
-            <p>Arrastra y suelta tu video aquí o</p>
-            <button 
-              mat-raised-button 
-              color="primary" 
-              (click)="fileInput.click()"
-              [disabled]="uploading"
-            >
-              Seleccionar Video
-            </button>
-          </div>
 
           @if (selectedFile) {
             <div class="file-info">
-              <p>Archivo: {{ selectedFile.name }}</p>
+              <p>Video seleccionado: {{ selectedFile.name }}</p>
               <p>Tamaño: {{ formatFileSize(selectedFile.size) }}</p>
+              
+              <button
+                mat-raised-button
+                color="primary"
+                (click)="uploadFile()"
+                [disabled]="uploading"
+              >
+                @if (uploading) {
+                  Subiendo...
+                } @else {
+                  Subir Video
+                }
+              </button>
             </div>
           }
 
           @if (uploading) {
-            <mat-progress-bar
-              mode="determinate"
-              [value]="uploadProgress"
-            ></mat-progress-bar>
+            <div class="progress-container">
+              <mat-progress-bar
+                mode="determinate"
+                [value]="uploadProgress"
+              ></mat-progress-bar>
+              <p>Progreso: {{ uploadProgress }}%</p>
+            </div>
           }
         </mat-card-content>
-
-        <mat-card-actions>
-          <button
-            mat-raised-button
-            color="accent"
-            (click)="uploadFile()"
-            [disabled]="!selectedFile || uploading"
-          >
-            Subir Video
-          </button>
-        </mat-card-actions>
       </mat-card>
     </div>
   `,
   styles: [`
     .upload-container {
+      padding: 16px;
       max-width: 600px;
-      margin: 20px auto;
-      padding: 0 20px;
+      margin: 0 auto;
     }
 
-    .upload-zone {
-      border: 2px dashed #ccc;
-      border-radius: 8px;
-      padding: 40px;
-      text-align: center;
-      margin: 20px 0;
-      cursor: pointer;
-      transition: all 0.3s ease;
-    }
-
-    .upload-zone.dragover {
-      border-color: #3f51b5;
-      background: rgba(63, 81, 181, 0.05);
-    }
-
-    .upload-icon {
-      font-size: 48px;
-      width: 48px;
-      height: 48px;
-      color: #666;
-      margin-bottom: 16px;
+    .file-input {
+      margin: 16px 0;
+      width: 100%;
+      padding: 8px;
     }
 
     .file-info {
@@ -118,12 +93,35 @@ import { VideoService } from '../../../services/video.service';
       border-radius: 4px;
     }
 
-    mat-progress-bar {
-      margin-top: 16px;
+    .progress-container {
+      margin: 16px 0;
+    }
+
+    .progress-container p {
+      text-align: center;
+      margin: 8px 0;
     }
 
     button {
-      margin: 8px;
+      width: 100%;
+      margin-top: 16px;
+    }
+
+    .message {
+      padding: 12px;
+      border-radius: 4px;
+      margin: 16px 0;
+      text-align: center;
+    }
+
+    .success {
+      background-color: #e8f5e9;
+      color: #2e7d32;
+    }
+
+    .error {
+      background-color: #ffebee;
+      color: #c62828;
     }
   `]
 })
@@ -131,7 +129,8 @@ export class VideoUploadComponent {
   selectedFile: File | null = null;
   uploading = false;
   uploadProgress = 0;
-  isDragging = false;
+  message = '';
+  messageType = '';
 
   constructor(
     private videoService: VideoService,
@@ -139,43 +138,12 @@ export class VideoUploadComponent {
   ) {}
 
   onFileSelected(event: any) {
-    const file = event.target.files[0];
-    if (file && file.type.startsWith('video/')) {
+    const file = event.target.files?.[0];
+    if (file) {
+      // Resetear mensajes
+      this.message = '';
+      this.messageType = '';
       this.selectedFile = file;
-    } else {
-      this.snackBar.open('Por favor selecciona un archivo de video', 'Cerrar', {
-        duration: 3000
-      });
-    }
-  }
-
-  onDragOver(event: DragEvent) {
-    event.preventDefault();
-    event.stopPropagation();
-    this.isDragging = true;
-  }
-
-  onDragLeave(event: DragEvent) {
-    event.preventDefault();
-    event.stopPropagation();
-    this.isDragging = false;
-  }
-
-  onDrop(event: DragEvent) {
-    event.preventDefault();
-    event.stopPropagation();
-    this.isDragging = false;
-
-    const files = event.dataTransfer?.files;
-    if (files?.length) {
-      const file = files[0];
-      if (file.type.startsWith('video/')) {
-        this.selectedFile = file;
-      } else {
-        this.snackBar.open('Por favor arrastra un archivo de video', 'Cerrar', {
-          duration: 3000
-        });
-      }
     }
   }
 
@@ -187,25 +155,40 @@ export class VideoUploadComponent {
     return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
   }
 
+  resetForm() {
+    // Limpiar el input de archivo
+    const fileInput = document.querySelector('input[type="file"]') as HTMLInputElement;
+    if (fileInput) {
+      fileInput.value = '';
+    }
+    this.selectedFile = null;
+    this.uploadProgress = 0;
+  }
+
   uploadFile() {
     if (!this.selectedFile) return;
 
     this.uploading = true;
+    this.message = '';
+    this.messageType = '';
+
     this.videoService.uploadVideo(this.selectedFile).subscribe({
-      next: (response) => {
-        this.snackBar.open('Video subido exitosamente', 'Cerrar', {
-          duration: 3000
-        });
-        this.uploading = false;
-        this.selectedFile = null;
-        this.uploadProgress = 0;
+      next: (event: any) => {
+        if (event.type === 'progress') {
+          this.uploadProgress = event.progress;
+        } else if (event.type === 'complete') {
+          this.uploading = false;
+          this.message = '¡Video subido exitosamente! Puedes subir otro video si lo deseas.';
+          this.messageType = 'success';
+          this.resetForm();
+        }
       },
       error: (error) => {
         console.error('Error al subir:', error);
-        this.snackBar.open('Error al subir el video', 'Cerrar', {
-          duration: 3000
-        });
         this.uploading = false;
+        this.message = 'Error al subir el video. Por favor, intenta nuevamente.';
+        this.messageType = 'error';
+        this.uploadProgress = 0;
       }
     });
   }

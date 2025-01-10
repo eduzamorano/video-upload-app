@@ -7,8 +7,9 @@ import { MatCardModule } from '@angular/material/card';
 import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatInputModule } from '@angular/material/input';
 import { MatButtonModule } from '@angular/material/button';
-import { MatSnackBar } from '@angular/material/snack-bar';
+import { MatSnackBarModule } from '@angular/material/snack-bar';
 import { AuthService } from '../../../services/auth.service';
+import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 
 @Component({
   selector: 'app-login',
@@ -20,7 +21,9 @@ import { AuthService } from '../../../services/auth.service';
     MatCardModule,
     MatFormFieldModule,
     MatInputModule,
-    MatButtonModule
+    MatButtonModule,
+    MatSnackBarModule,
+    MatProgressSpinnerModule
   ],
   template: `
     <div class="login-container">
@@ -30,20 +33,45 @@ import { AuthService } from '../../../services/auth.service';
         </mat-card-header>
 
         <mat-card-content>
+          @if (errorMessage) {
+            <div class="error-message">
+              {{ errorMessage }}
+            </div>
+          }
+
           <form [formGroup]="loginForm" (ngSubmit)="onSubmit()">
             <mat-form-field class="full-width">
               <mat-label>Email</mat-label>
               <input matInput formControlName="email" type="email">
+              @if (loginForm.get('email')?.hasError('required') && loginForm.get('email')?.touched) {
+                <mat-error>El email es requerido</mat-error>
+              }
+              @if (loginForm.get('email')?.hasError('email')) {
+                <mat-error>Ingresa un email válido</mat-error>
+              }
             </mat-form-field>
 
             <mat-form-field class="full-width">
               <mat-label>Contraseña</mat-label>
               <input matInput formControlName="password" type="password">
+              @if (loginForm.get('password')?.hasError('required') && loginForm.get('password')?.touched) {
+                <mat-error>La contraseña es requerida</mat-error>
+              }
             </mat-form-field>
 
-            <button mat-raised-button color="primary" type="submit" 
-                    [disabled]="loginForm.invalid || isLoading">
-              {{ isLoading ? 'Cargando...' : 'Ingresar' }}
+            <button 
+              mat-raised-button 
+              color="primary" 
+              type="submit"
+              [disabled]="loginForm.invalid || isLoading"
+              class="full-width"
+            >
+              @if (isLoading) {
+                <mat-spinner diameter="20" class="spinner"></mat-spinner>
+                Iniciando sesión...
+              } @else {
+                Iniciar Sesión
+              }
             </button>
           </form>
         </mat-card-content>
@@ -64,17 +92,35 @@ import { AuthService } from '../../../services/auth.service';
     .full-width {
       width: 100%;
     }
+    .error-message {
+      background-color: #ffebee;
+      color: #c62828;
+      padding: 12px;
+      border-radius: 4px;
+      margin-bottom: 16px;
+      text-align: center;
+    }
+    .spinner {
+      display: inline-block;
+      margin-right: 8px;
+    }
+    button {
+      height: 48px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
   `]
 })
 export class LoginComponent {
   loginForm: FormGroup;
   isLoading = false;
+  errorMessage: string = '';
 
   constructor(
     private fb: FormBuilder,
     private authService: AuthService,
-    private router: Router,
-    private snackBar: MatSnackBar
+    private router: Router
   ) {
     this.loginForm = this.fb.group({
       email: ['', [Validators.required, Validators.email]],
@@ -85,17 +131,29 @@ export class LoginComponent {
   onSubmit() {
     if (this.loginForm.valid) {
       this.isLoading = true;
+      this.errorMessage = '';
+      
       this.authService.login(this.loginForm.value).subscribe({
-        next: () => {
+        next: (response) => {
+          this.isLoading = false;
           this.router.navigate(['/videos']);
         },
         error: (error) => {
-          this.snackBar.open('Error al iniciar sesión', 'Cerrar', {
-            duration: 3000
-          });
           this.isLoading = false;
+          
+          if (error.status === 404) {
+            this.errorMessage = 'Usuario no encontrado';
+          } else if (error.status === 401) {
+            this.errorMessage = 'Contraseña incorrecta';
+          } else if (error.error?.message) {
+            this.errorMessage = error.error.message;
+          } else {
+            this.errorMessage = 'Error al iniciar sesión';
+          }
         }
       });
+    } else {
+      this.errorMessage = 'Por favor, completa todos los campos correctamente';
     }
   }
 }
